@@ -1,52 +1,50 @@
-# Configure the Azure provider
 terraform {
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0.2"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 4.51.0"
     }
   }
 
   required_version = ">= 1.1.0"
 }
 
-provider "azurerm" {
-  features {}
+provider "google" {
+  credentials = file("service-account.json")
+  project     = "${local.project}"
+  region      = "southamerica-east1"
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = "go-tf-jt-resources"
-  location = "brazilsouth"
+locals {
+  project = "test-gcp-terraform-431318"
 }
 
-resource "azurerm_service_plan" "sp" {
-  name = "go-tf-jt-zipdeploy"
-  location = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  os_type = "Linux"
-  sku_name = "F1"
+resource "google_artifact_registry_repository" "my-repo" {
+  location      = "southamerica-east1"
+  repository_id = "testing-terraform"
+  description   = "my APIs"
+  format        = "docker"
 }
 
-resource "azurerm_linux_web_app" "webapp" {
-  name = "go-tf-jt-instance"
-  location = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  service_plan_id = azurerm_service_plan.sp.id
 
-  app_settings = {
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+resource "google_cloud_run_service" "instance" {
+  name     = "go-api"
+  location = google_artifact_registry_repository.my-repo.location
+
+  template {
+    spec {
+      containers {
+        image = "gcr.io/southamerica-east1-docker.pkg.dev/test-gcp-terraform-431318/testing-terraform/api"
+      }
+    }
   }
 
-  site_config {
-    always_on = false
-    
-    application_stack {
-      docker_image = "golang"
-      docker_image_tag = "latest"
-    }
+  traffic {
+    percent         = 100
+    latest_revision = true
   }
 }
 
 output "resultado" {
-  value = azurerm_linux_web_app.webapp.outbound_ip_addresses
+  value = google_cloud_run_service.instance.status[0].url
 }
