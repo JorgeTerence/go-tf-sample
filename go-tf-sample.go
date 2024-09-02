@@ -23,6 +23,10 @@ func setupRouter() *gin.Engine {
 		c.String(http.StatusOK, "pong")
 	})
 
+	r.GET("/hello", func(c *gin.Context) {
+		c.String(http.StatusOK, "Welcome to AWS, %s", c.Query("name"))
+	})
+
 	// Register a new user
 	// Example: curl POST http://localhost:8080/user/MyUserName -d "password=MyFavouriteCartoon"
 	r.POST("/user/:name", func(c *gin.Context) {
